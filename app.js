@@ -18,7 +18,7 @@ class VoiceChatApp {
         this.aiConfig = {
             apiUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
             apiKey: '75851fc743ef4a0ca3a29197254f6431.UtfFp9OUjl0HPEuJ',
-            modelName: 'glm-4.7'
+            modelName: 'glm-4-flash'
         };
         this.aiConfigured = true; // 设置为已配置状态
         
@@ -191,17 +191,14 @@ class VoiceChatApp {
             stream.getTracks().forEach(track => track.stop());
             
             this.micPermission = true;
-            this.micIcon.classList.remove('bg-gray-500');
-            this.micIcon.classList.add('bg-green-500', 'neon-green');
-            this.micText.textContent = '音频接口已连接';
-            this.micText.classList.remove('text-cyan-300');
-            this.micText.classList.add('neon-green');
+            // 隐藏麦克风状态区域，因为已经连接成功
+            this.micStatus.style.display = 'none';
         } catch (error) {
             this.micPermission = false;
             this.micIcon.classList.remove('bg-gray-500');
             this.micIcon.classList.add('bg-red-500');
             this.micText.textContent = '音频接口连接失败';
-            this.micText.classList.remove('text-cyan-300');
+            this.micText.classList.remove('cyber-text-cyan-readable');
             this.micText.classList.add('text-red-400');
         }
     }
@@ -602,26 +599,39 @@ class VoiceChatApp {
     // 创建AI消息元素
     createAIMessageElement(message) {
         const messageDiv = document.createElement('div');
-        messageDiv.className = `flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`;
-
-        const bubbleDiv = document.createElement('div');
-        bubbleDiv.className = `px-6 py-4 max-w-xs lg:max-w-md shadow-lg ${this.getAIMessageStyles(message.role)}`;
-
-        bubbleDiv.innerHTML = `
-            <div class="whitespace-pre-wrap font-medium">${this.escapeHtml(message.content)}</div>
-            <div class="text-xs opacity-70 mt-2">${this.formatTime(message.timestamp)}</div>
-        `;
-
-        messageDiv.appendChild(bubbleDiv);
         
-        // 添加动画效果
+        if (message.role === 'user') {
+            messageDiv.className = 'flex items-start space-x-3 justify-end mb-4';
+            messageDiv.innerHTML = `
+                <div class="${this.getAIMessageStyles(message.role)}">
+                    <div class="message-text">${this.escapeHtml(message.content)}</div>
+                    <div class="message-time text-right">${this.formatTime(message.timestamp)}</div>
+                </div>
+                <div class="avatar flex-shrink-0">
+                    <span>You</span>
+                </div>
+            `;
+        } else {
+            messageDiv.className = 'flex items-start space-x-3 mb-4';
+            messageDiv.innerHTML = `
+                <div class="avatar avatar-ai flex-shrink-0">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="${this.getAIMessageStyles(message.role)}">
+                    <div class="message-text">${this.escapeHtml(message.content)}</div>
+                    <div class="message-time">${this.formatTime(message.timestamp)}</div>
+                </div>
+            `;
+        }
+        
+        // 添加现代进入动画
         messageDiv.style.opacity = '0';
         messageDiv.style.transform = 'translateY(20px)';
         setTimeout(() => {
-            messageDiv.style.transition = 'all 0.3s ease';
+            messageDiv.style.transition = 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             messageDiv.style.opacity = '1';
             messageDiv.style.transform = 'translateY(0)';
-        }, 100);
+        }, 50);
 
         return messageDiv;
     }
@@ -630,24 +640,32 @@ class VoiceChatApp {
     getAIMessageStyles(role) {
         switch (role) {
             case 'user':
-                return 'cyber-border cyber-glow bg-gradient-to-r from-blue-900 to-cyan-900 text-cyan-300 rounded-2xl rounded-br-md ml-12';
+                return 'message-bubble-user p-4 max-w-xs lg:max-w-md ml-auto';
             case 'assistant':
-                return 'cyber-border cyber-glow bg-gradient-to-r from-purple-900 to-pink-900 text-pink-300 rounded-2xl rounded-bl-md mr-12';
+                return 'message-bubble-assistant p-4 max-w-xs lg:max-w-md';
             default:
-                return 'cyber-border bg-gray-900 text-gray-300 rounded-2xl';
+                return 'message-bubble-assistant p-4 max-w-xs lg:max-w-md';
         }
     }
     
     // 发送AI消息
     async sendAIMessage() {
         const message = this.aiMessageInput.value.trim();
-        if (!message || this.isAITyping) return;
+        console.log('发送AI消息:', message);
+        
+        if (!message || this.isAITyping) {
+            console.log('消息为空或AI正在输入，跳过');
+            return;
+        }
 
         if (!this.aiConfigured) {
+            console.log('AI未配置');
             this.showNotification('请先配置AI API信息', 'error');
             this.openAISettings();
             return;
         }
+
+        console.log('当前AI配置:', this.aiConfig);
 
         // 添加用户消息
         this.aiMessages.push({
@@ -664,7 +682,9 @@ class VoiceChatApp {
         this.showAITypingIndicator();
 
         try {
+            console.log('开始调用AI API...');
             const response = await this.callAI(message);
+            console.log('AI响应成功:', response);
             this.hideAITypingIndicator();
             
             // 添加AI回复
@@ -676,52 +696,106 @@ class VoiceChatApp {
             
             this.renderAIChatContainer();
         } catch (error) {
+            console.error('AI调用失败:', error);
             this.hideAITypingIndicator();
+            
+            // 添加错误消息到聊天中
+            this.aiMessages.push({
+                role: 'assistant',
+                content: `抱歉，AI服务暂时不可用。错误信息：${error.message}`,
+                timestamp: new Date()
+            });
+            this.renderAIChatContainer();
+            
             this.showNotification('AI回复失败：' + error.message, 'error');
         }
     }
     
     // 调用AI API
     async callAI(message) {
-        // 构建消息历史，包含用户需求作为系统提示
-        const messages = [
-            {
-                role: 'system',
-                content: `你是一个友善的AI助手。用户想聊的话题是："${this.demandText}"。请围绕这个话题进行对话，提供有帮助的回复。`
-            }
-        ];
-        
-        // 添加对话历史
-        this.aiMessages.forEach(msg => {
-            if (msg.role !== 'system') {
-                messages.push({
-                    role: msg.role,
-                    content: msg.content
-                });
-            }
-        });
+        try {
+            // 构建消息历史，包含用户需求作为系统提示
+            const messages = [
+                {
+                    role: 'system',
+                    content: `你是一个友善的AI助手。用户想聊的话题是："${this.demandText}"。请围绕这个话题进行对话，提供有帮助的回复。`
+                }
+            ];
+            
+            // 添加对话历史
+            this.aiMessages.forEach(msg => {
+                if (msg.role !== 'system') {
+                    messages.push({
+                        role: msg.role,
+                        content: msg.content
+                    });
+                }
+            });
 
-        const response = await fetch(this.aiConfig.apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.aiConfig.apiKey}`
-            },
-            body: JSON.stringify({
+            const requestBody = {
                 model: this.aiConfig.modelName,
                 messages: messages,
                 temperature: 0.7,
-                max_tokens: 1000
-            })
-        });
+                max_tokens: 1000,
+                stream: false
+            };
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+            console.log('发送AI请求:', {
+                url: this.aiConfig.apiUrl,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.aiConfig.apiKey.substring(0, 10)}...`
+                },
+                body: requestBody
+            });
+
+            const response = await fetch(this.aiConfig.apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.aiConfig.apiKey}`
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            console.log('AI响应状态:', response.status, response.statusText);
+            console.log('AI响应头:', Object.fromEntries(response.headers.entries()));
+
+            const responseText = await response.text();
+            console.log('AI原始响应:', responseText);
+
+            if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errorData = JSON.parse(responseText);
+                    errorMessage = errorData.error?.message || errorData.message || errorMessage;
+                    console.error('AI API错误数据:', errorData);
+                } catch (e) {
+                    console.error('无法解析错误响应:', responseText);
+                }
+                throw new Error(errorMessage);
+            }
+
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (e) {
+                console.error('无法解析AI响应JSON:', responseText);
+                throw new Error('AI响应格式错误');
+            }
+            
+            console.log('AI解析后的响应数据:', data);
+            
+            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+                console.error('AI响应结构错误:', data);
+                throw new Error('AI响应格式错误：缺少choices或message字段');
+            }
+            
+            return data.choices[0].message.content;
+        } catch (error) {
+            console.error('callAI函数异常:', error);
+            throw error;
         }
-
-        const data = await response.json();
-        return data.choices[0].message.content;
     }
     
     // 显示/隐藏AI正在输入指示器
@@ -911,31 +985,61 @@ class VoiceChatApp {
         this.testAIConnectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>测试中...</span>';
 
         try {
+            const testRequestBody = {
+                model: config.modelName,
+                messages: [{ role: 'user', content: 'Hello, this is a test.' }],
+                max_tokens: 10,
+                temperature: 0.1,
+                stream: false
+            };
+            
+            console.log('测试AI连接:', {
+                url: config.apiUrl,
+                model: config.modelName,
+                keyPrefix: config.apiKey.substring(0, 10) + '...'
+            });
+            
             const response = await fetch(config.apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${config.apiKey}`
                 },
-                body: JSON.stringify({
-                    model: config.modelName,
-                    messages: [{ role: 'user', content: 'Hello, this is a test.' }],
-                    max_tokens: 10,
-                    temperature: 0.1
-                })
+                body: JSON.stringify(testRequestBody)
             });
 
+            console.log('测试响应状态:', response.status, response.statusText);
+            console.log('测试响应头:', Object.fromEntries(response.headers.entries()));
+
+            const responseText = await response.text();
+            console.log('测试原始响应:', responseText);
+
             if (response.ok) {
-                this.showNotification('✅ AI API 连接测试成功！', 'success');
+                try {
+                    const data = JSON.parse(responseText);
+                    console.log('测试响应数据:', data);
+                    this.showNotification('✅ AI API 连接测试成功！', 'success');
+                } catch (e) {
+                    console.error('测试响应JSON解析失败:', responseText);
+                    this.showNotification('⚠️ API连接成功，但响应格式异常', 'warning');
+                }
             } else {
-                const errorData = await response.json();
-                this.showNotification(`❌ API 连接失败: ${errorData.error?.message || response.statusText}`, 'error');
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errorData = JSON.parse(responseText);
+                    errorMessage = errorData.error?.message || errorData.message || errorMessage;
+                    console.error('测试API错误数据:', errorData);
+                } catch (e) {
+                    console.error('测试错误响应解析失败:', responseText);
+                }
+                this.showNotification(`❌ API 连接失败: ${errorMessage}`, 'error');
             }
         } catch (error) {
+            console.error('测试连接异常:', error);
             this.showNotification('❌ 测试连接时发生错误：' + error.message, 'error');
         } finally {
             this.testAIConnectionBtn.disabled = false;
-            this.testAIConnectionBtn.innerHTML = '<i class="fas fa-plug"></i><span>测试连接</span>';
+            this.testAIConnectionBtn.innerHTML = '<i class="fas fa-plug"></i><span>TEST CONNECTION</span>';
         }
     }
     
