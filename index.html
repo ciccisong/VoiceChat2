@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1v1 语音社交匹配</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(120, 219, 226, 0.2) 0%, transparent 50%),
+                linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* 赛博朋克字体 */
+        .cyber-title {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        
+        .cyber-text {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 500;
+        }
+        
+        /* 霓虹发光效果 */
+        .neon-cyan {
+            color: #00ffff;
+            text-shadow: 
+                0 0 5px #00ffff,
+                0 0 10px #00ffff,
+                0 0 15px #00ffff,
+                0 0 20px #00ffff;
+        }
+        
+        .neon-pink {
+            color: #ff00ff;
+            text-shadow: 
+                0 0 5px #ff00ff,
+                0 0 10px #ff00ff,
+                0 0 15px #ff00ff,
+                0 0 20px #ff00ff;
+        }
+        
+        .neon-green {
+            color: #00ff41;
+            text-shadow: 
+                0 0 5px #00ff41,
+                0 0 10px #00ff41,
+                0 0 15px #00ff41;
+        }
+        
+        /* 赛博朋克边框 */
+        .cyber-border {
+            border: 2px solid transparent;
+            background: linear-gradient(45deg, #00ffff, #ff00ff, #00ff41) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: exclude;
+            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+        }
+        
+        .cyber-glow {
+            box-shadow: 
+                0 0 20px rgba(0, 255, 255, 0.3),
+                0 0 40px rgba(255, 0, 255, 0.2),
+                inset 0 0 20px rgba(0, 255, 65, 0.1);
+        }
+        
+        /* 波纹动画 - 赛博朋克版 */
+        @keyframes cyber-pulse {
+            0% { 
+                transform: scale(0.33);
+                box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.7);
+            }
+            40%, 50% { 
+                opacity: 1;
+                box-shadow: 0 0 20px 10px rgba(0, 255, 255, 0.3);
+            }
+            100% { 
+                opacity: 0; 
+                transform: scale(1.33);
+                box-shadow: 0 0 40px 20px rgba(0, 255, 255, 0);
+            }
+        }
+        
+        @keyframes cyber-wave {
+            0%, 100% { 
+                transform: scaleY(1);
+                background: linear-gradient(to top, #00ffff, #ff00ff);
+            }
+            50% { 
+                transform: scaleY(1.8);
+                background: linear-gradient(to top, #ff00ff, #00ff41);
+            }
+        }
+        
+        .cyber-pulse-ring {
+            animation: cyber-pulse 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+            border: 2px solid #00ffff;
+            border-radius: 50%;
+        }
+        
+        .cyber-wave-bar {
+            animation: cyber-wave 1.5s ease-in-out infinite;
+            background: linear-gradient(to top, #00ffff, #ff00ff);
+        }
+        
+        /* 计时器圆环 - 赛博朋克版 */
+        .cyber-timer-circle {
+            stroke-dasharray: 283;
+            stroke-dashoffset: 283;
+            transition: stroke-dashoffset 1s linear;
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+        
+        /* 输入框样式 - 赛博朋克版 */
+        .cyber-input {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00ffff;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            color: #00ffff;
+            font-family: 'Rajdhani', monospace;
+            font-weight: 500;
+        }
+        
+        .cyber-input:focus {
+            border-color: #ff00ff;
+            box-shadow: 
+                0 0 20px rgba(255, 0, 255, 0.5),
+                inset 0 0 20px rgba(0, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.8);
+            color: #ff00ff;
+        }
+        
+        .cyber-input::placeholder {
+            color: rgba(0, 255, 255, 0.6);
+        }
+        
+        /* 按钮样式 - 赛博朋克版 */
+        .cyber-button {
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.1) 0%, rgba(255, 0, 255, 0.1) 100%);
+            border: 2px solid #00ffff;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .cyber-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .cyber-button:hover::before {
+            left: 100%;
+        }
+        
+        .cyber-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 10px 25px rgba(0, 255, 255, 0.3),
+                0 0 20px rgba(255, 0, 255, 0.2);
+            border-color: #ff00ff;
+            color: #ff00ff;
+        }
+        
+        .cyber-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            border-color: #333;
+            color: #666;
+        }
+        
+        .cyber-button:disabled::before {
+            display: none;
+        }
+        
+        /* AI按钮特殊样式 */
+        .cyber-ai-button {
+            background: linear-gradient(135deg, rgba(255, 0, 255, 0.2) 0%, rgba(0, 255, 65, 0.2) 100%);
+            border: 2px solid #ff00ff;
+        }
+        
+        .cyber-ai-button:hover {
+            border-color: #00ff41;
+            color: #00ff41;
+            box-shadow: 
+                0 10px 25px rgba(255, 0, 255, 0.3),
+                0 0 20px rgba(0, 255, 65, 0.2);
+        }
+        
+        /* 语音可视化 - 赛博朋克版 */
+        .cyber-voice-visualizer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        /* 续聊弹窗 - 赛博朋克版 */
+        .cyber-modal-backdrop {
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+        }
+        
+        .cyber-modal-content {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(26, 26, 46, 0.9) 100%);
+            backdrop-filter: blur(20px);
+            border: 2px solid #00ffff;
+            box-shadow: 
+                0 0 30px rgba(0, 255, 255, 0.3),
+                inset 0 0 30px rgba(255, 0, 255, 0.1);
+        }
+        
+        /* 状态指示器 - 赛博朋克版 */
+        .cyber-status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: cyber-pulse-dot 2s infinite;
+            border: 1px solid currentColor;
+        }
+        
+        @keyframes cyber-pulse-dot {
+            0%, 100% { 
+                opacity: 1;
+                box-shadow: 0 0 10px currentColor;
+            }
+            50% { 
+                opacity: 0.3;
+                box-shadow: 0 0 20px currentColor;
+            }
+        }
+        
+        /* 页面切换动画 */
+        .page {
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+        
+        .page.hidden {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+            pointer-events: none;
+        }
+        
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #00ffff, #ff00ff);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(to bottom, #ff00ff, #00ff41);
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .cyber-title {
+                font-size: 2rem;
+                letter-spacing: 2px;
+            }
+            
+            .timer-display {
+                font-size: 2rem;
+            }
+        }
+        
+        /* 扫描线效果 */
+        .scan-lines::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 255, 255, 0.03) 2px,
+                rgba(0, 255, 255, 0.03) 4px
+            );
+            pointer-events: none;
+        }
+        
+        /* 数据流动画 */
+        @keyframes data-flow {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100vw); }
+        }
+        
+        .data-stream {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 2px;
+            height: 100vh;
+            background: linear-gradient(to bottom, transparent, #00ffff, transparent);
+            animation: data-flow 8s linear infinite;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body class="text-white">
+    <!-- 数据流动画背景 -->
+    <div class="data-stream" style="animation-delay: 0s;"></div>
+    <div class="data-stream" style="animation-delay: 2s;"></div>
+    <div class="data-stream" style="animation-delay: 4s;"></div>
+    <div class="data-stream" style="animation-delay: 6s;"></div>
+
+    <!-- 需求输入页面 -->
+    <div id="entryPage" class="page min-h-screen flex items-center justify-center p-6 scan-lines relative">
+        <div class="max-w-md w-full">
+            <div class="text-center mb-12">
+                <div class="w-24 h-24 mx-auto mb-8 cyber-border cyber-glow rounded-full flex items-center justify-center relative">
+                    <i class="fas fa-microchip text-4xl neon-cyan"></i>
+                    <div class="absolute inset-0 rounded-full border-2 border-cyan-400 animate-spin" style="animation-duration: 8s;"></div>
+                </div>
+                <h1 class="cyber-title text-5xl font-bold mb-6 neon-cyan">
+                    NEURAL LINK
+                </h1>
+                <p class="cyber-text text-xl neon-pink opacity-80">连接数字灵魂 • 探索赛博空间</p>
+            </div>
+            
+            <div class="space-y-8">
+                <!-- 需求输入框 -->
+                <div class="relative">
+                    <textarea 
+                        id="demandInput"
+                        placeholder="输入你的数据流..."
+                        maxlength="50"
+                        rows="4"
+                        class="cyber-input w-full p-6 rounded-xl resize-none focus:outline-none placeholder-cyan-400"
+                    ></textarea>
+                    <div class="absolute bottom-4 right-4">
+                        <span id="charCount" class="text-sm neon-green">0/50</span>
+                    </div>
+                    <div class="absolute top-2 left-2">
+                        <span class="text-xs neon-cyan opacity-60">[DATA_INPUT]</span>
+                    </div>
+                </div>
+                
+                <!-- 麦克风权限状态 -->
+                <div id="micStatus" class="flex items-center justify-center space-x-4 p-4 cyber-border rounded-xl cyber-glow">
+                    <div id="micIcon" class="cyber-status-dot bg-gray-500"></div>
+                    <span id="micText" class="cyber-text text-cyan-300">正在检测音频接口...</span>
+                </div>
+                
+                <!-- 匹配选项 -->
+                <div class="space-y-6">
+                    <button 
+                        id="startMatchBtn"
+                        disabled
+                        class="cyber-button w-full py-4 px-6 rounded-xl font-bold text-lg text-cyan-400 shadow-lg relative"
+                    >
+                        <i class="fas fa-users mr-3"></i>
+                        NEURAL MATCHING
+                    </button>
+                    
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-cyan-600 opacity-50"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-4 bg-gray-900 cyber-text neon-pink">[OR_EXECUTE]</span>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        id="chatWithAIBtn"
+                        disabled
+                        class="cyber-ai-button cyber-button w-full py-4 px-6 rounded-xl font-bold text-lg text-pink-400 shadow-lg relative"
+                    >
+                        <i class="fas fa-robot mr-3"></i>
+                        AI INTERFACE
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 匹配页面 -->
+    <div id="matchingPage" class="page hidden min-h-screen flex items-center justify-center p-6 scan-lines relative">
+        <div class="text-center max-w-md w-full">
+            <!-- 波纹动画 -->
+            <div class="relative mb-12">
+                <div class="w-48 h-48 mx-auto relative">
+                    <div class="absolute inset-0 cyber-pulse-ring"></div>
+                    <div class="absolute inset-4 cyber-pulse-ring" style="animation-delay: 0.5s; border-color: #ff00ff;"></div>
+                    <div class="absolute inset-8 cyber-pulse-ring" style="animation-delay: 1s; border-color: #00ff41;"></div>
+                    <div class="w-24 h-24 cyber-border cyber-glow rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
+                        <i class="fas fa-search text-3xl neon-pink animate-pulse"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <h2 class="cyber-title text-4xl font-bold mb-6 neon-cyan">SCANNING NETWORK...</h2>
+            <p class="cyber-text text-xl mb-8 neon-green">
+                在线节点: <span id="onlineCount" class="neon-pink font-bold">12</span>
+            </p>
+            
+            <!-- 用户需求预览 -->
+            <div class="cyber-border cyber-glow rounded-xl p-6 mb-8 relative">
+                <div class="absolute top-2 left-2">
+                    <span class="text-xs neon-cyan opacity-60">[USER_DATA]</span>
+                </div>
+                <p class="text-sm neon-green mb-2">数据包内容</p>
+                <p id="demandPreview" class="cyber-text text-lg font-medium neon-cyan"></p>
+            </div>
+            
+            <button id="cancelMatchBtn" class="cyber-button px-8 py-3 rounded-xl neon-pink border-2 border-pink-500 hover:border-red-500 transition-colors">
+                <i class="fas fa-times mr-2"></i>
+                ABORT SCAN
+            </button>
+        </div>
+    </div>
+
+    <!-- 语音通话页面 -->
+    <div id="callPage" class="page hidden min-h-screen flex flex-col scan-lines relative">
+        <!-- 顶部信息区域 -->
+        <div class="flex-1 flex flex-col items-center justify-center p-8">
+            <!-- 对方需求显示 -->
+            <div class="cyber-border cyber-glow rounded-xl p-6 mb-8 max-w-md w-full text-center relative">
+                <div class="absolute top-2 left-2">
+                    <span class="text-xs neon-cyan opacity-60">[PEER_DATA]</span>
+                </div>
+                <p class="text-sm neon-green mb-2">对方数据流</p>
+                <p id="partnerDemand" class="cyber-text text-lg neon-cyan font-medium">正在建立连接...</p>
+            </div>
+            
+            <!-- 计时器 -->
+            <div class="relative mb-8">
+                <svg class="w-64 h-64 transform -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" stroke="rgba(0, 255, 255, 0.2)" stroke-width="2" fill="none"/>
+                    <circle 
+                        id="timerCircle"
+                        cx="50" cy="50" r="45" 
+                        stroke="currentColor" 
+                        stroke-width="4" 
+                        fill="none" 
+                        class="neon-cyan cyber-timer-circle"
+                        stroke-linecap="round"
+                    />
+                </svg>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="text-center">
+                        <div id="timeDisplay" class="cyber-title text-6xl font-bold neon-pink">01:00</div>
+                        <div class="cyber-text text-sm neon-green mt-2">[CONNECTION_TIME]</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 语音可视化 -->
+            <div class="cyber-voice-visualizer mb-8">
+                <div class="w-3 h-8 rounded-full cyber-wave-bar" style="animation-delay: 0s;"></div>
+                <div class="w-3 h-12 rounded-full cyber-wave-bar" style="animation-delay: 0.2s;"></div>
+                <div class="w-3 h-6 rounded-full cyber-wave-bar" style="animation-delay: 0.4s;"></div>
+                <div class="w-3 h-16 rounded-full cyber-wave-bar" style="animation-delay: 0.6s;"></div>
+                <div class="w-3 h-10 rounded-full cyber-wave-bar" style="animation-delay: 0.8s;"></div>
+                <div class="w-3 h-14 rounded-full cyber-wave-bar" style="animation-delay: 1s;"></div>
+                <div class="w-3 h-8 rounded-full cyber-wave-bar" style="animation-delay: 1.2s;"></div>
+            </div>
+        </div>
+        
+        <!-- 底部控制按钮 -->
+        <div class="flex justify-center space-x-12 pb-8">
+            <button id="muteBtn" class="w-20 h-20 cyber-border cyber-glow rounded-full flex items-center justify-center transition-all hover:scale-110">
+                <i class="fas fa-microphone text-2xl neon-cyan"></i>
+            </button>
+            <button id="hangupBtn" class="w-20 h-20 border-2 border-red-500 rounded-full flex items-center justify-center transition-all hover:scale-110 hover:bg-red-500 hover:bg-opacity-20">
+                <i class="fas fa-phone-slash text-2xl text-red-400"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- AI对话页面 -->
+    <div id="aiChatPage" class="page hidden min-h-screen flex flex-col scan-lines relative">
+        <!-- 顶部导航 -->
+        <div class="bg-gradient-to-r from-black via-gray-900 to-black text-white px-6 py-4 cyber-border border-b-2 border-cyan-500">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 cyber-border cyber-glow rounded-full flex items-center justify-center">
+                        <i class="fas fa-brain text-xl neon-pink"></i>
+                    </div>
+                    <div>
+                        <h1 class="cyber-title text-xl font-bold neon-cyan">AI NEURAL INTERFACE</h1>
+                        <p class="cyber-text text-sm neon-green" id="aiStatusText">系统就绪</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button id="aiSettingsBtn" class="p-3 cyber-border rounded-lg hover:cyber-glow transition-all">
+                        <i class="fas fa-cog text-lg neon-cyan"></i>
+                    </button>
+                    <button id="backToHomeBtn" class="p-3 cyber-border rounded-lg hover:cyber-glow transition-all">
+                        <i class="fas fa-arrow-left text-lg neon-pink"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 聊天消息区域 -->
+        <div class="flex-1 overflow-hidden relative">
+            <div id="aiChatContainer" class="h-full overflow-y-auto p-6 space-y-6">
+                <!-- 欢迎消息 -->
+                <div class="flex justify-start">
+                    <div class="cyber-border cyber-glow px-6 py-4 rounded-2xl rounded-bl-md max-w-xs lg:max-w-md shadow-lg bg-gradient-to-r from-purple-900 to-pink-900">
+                        <div class="cyber-text font-medium neon-cyan">你好！我是AI助手</div>
+                        <div class="cyber-text text-sm neon-green mt-1">基于你的需求：<span id="aiUserDemand" class="font-semibold neon-pink"></span></div>
+                        <div class="cyber-text text-sm neon-green mt-1">有什么可以帮助你的吗？</div>
+                        <div class="text-xs neon-cyan opacity-70 mt-2">刚刚</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- AI正在输入指示器 -->
+            <div id="aiTypingIndicator" class="hidden px-6 py-3">
+                <div class="flex justify-start">
+                    <div class="cyber-border cyber-glow px-4 py-3 rounded-2xl rounded-bl-md max-w-xs bg-gradient-to-r from-purple-900 to-pink-900">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex space-x-1">
+                                <div class="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                                <div class="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style="animation-delay: 0.1s;"></div>
+                                <div class="w-2 h-2 bg-green-400 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+                            </div>
+                            <span class="cyber-text text-sm neon-green">AI正在处理数据...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 消息输入区域 -->
+        <div class="border-t-2 border-cyan-500 bg-black bg-opacity-80 backdrop-blur-lg px-6 py-4">
+            <div class="flex items-end space-x-4 max-w-4xl mx-auto">
+                <div class="flex-1 relative">
+                    <textarea 
+                        id="aiMessageInput" 
+                        placeholder="输入数据流..." 
+                        rows="1"
+                        class="cyber-input w-full resize-none px-6 py-4 rounded-2xl focus:outline-none transition-all duration-300"
+                    ></textarea>
+                </div>
+                <button 
+                    id="aiSendBtn" 
+                    class="w-14 h-14 cyber-border cyber-glow rounded-full flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <i class="fas fa-paper-plane text-lg neon-cyan"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI设置面板 -->
+    <div id="aiSettingsPanel" class="fixed top-0 right-0 h-full w-96 bg-black bg-opacity-95 backdrop-blur-lg shadow-2xl z-50 transform translate-x-full transition-transform duration-300 overflow-y-auto cyber-border border-l-2 border-cyan-500">
+        <div class="p-6">
+            <!-- 设置面板头部 -->
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="cyber-title text-2xl font-bold neon-cyan flex items-center">
+                    <i class="fas fa-cog mr-3 neon-pink"></i>
+                    SYSTEM CONFIG
+                </h2>
+                <button id="closeAISettingsBtn" class="p-2 cyber-border rounded-full hover:cyber-glow transition-all">
+                    <i class="fas fa-times text-xl neon-pink"></i>
+                </button>
+            </div>
+
+            <!-- API 配置区域 -->
+            <div class="space-y-6">
+                <div class="cyber-border cyber-glow rounded-2xl p-6 bg-gradient-to-br from-purple-900 to-pink-900 bg-opacity-30">
+                    <h3 class="cyber-title text-lg font-semibold neon-green mb-4 flex items-center">
+                        <i class="fas fa-server mr-2 neon-cyan"></i>
+                        API INTERFACE
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block cyber-text text-sm font-medium neon-cyan mb-2">
+                                <i class="fas fa-link mr-1 neon-pink"></i>
+                                API 地址
+                            </label>
+                            <input 
+                                type="url" 
+                                id="aiApiUrl" 
+                                placeholder="https://api.openai.com/v1/chat/completions"
+                                class="cyber-input w-full px-4 py-3 rounded-xl focus:outline-none transition-colors"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block cyber-text text-sm font-medium neon-cyan mb-2">
+                                <i class="fas fa-key mr-1 neon-pink"></i>
+                                API 密钥
+                            </label>
+                            <div class="relative">
+                                <input 
+                                    type="password" 
+                                    id="aiApiKey" 
+                                    placeholder="输入您的API密钥..."
+                                    class="cyber-input w-full px-4 py-3 pr-12 rounded-xl focus:outline-none transition-colors"
+                                >
+                                <button type="button" id="toggleAIApiKey" class="absolute right-3 top-1/2 transform -translate-y-1/2 neon-green hover:neon-pink transition-colors">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block cyber-text text-sm font-medium neon-cyan mb-2">
+                                <i class="fas fa-brain mr-1 neon-pink"></i>
+                                模型名称
+                            </label>
+                            <input 
+                                type="text" 
+                                id="aiModelName" 
+                                placeholder="gpt-3.5-turbo"
+                                class="cyber-input w-full px-4 py-3 rounded-xl focus:outline-none transition-colors"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="space-y-3">
+                    <button 
+                        id="saveAIConfigBtn" 
+                        class="cyber-button w-full py-4 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg neon-cyan border-2 border-cyan-500"
+                    >
+                        <i class="fas fa-save"></i>
+                        <span>SAVE CONFIG</span>
+                    </button>
+                    
+                    <button 
+                        id="testAIConnectionBtn" 
+                        class="cyber-button w-full py-4 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg neon-green border-2 border-green-500"
+                    >
+                        <i class="fas fa-plug"></i>
+                        <span>TEST CONNECTION</span>
+                    </button>
+                    
+                    <button 
+                        id="clearAIChatBtn" 
+                        class="cyber-button w-full py-4 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg neon-pink border-2 border-pink-500"
+                    >
+                        <i class="fas fa-broom"></i>
+                        <span>CLEAR DATA</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI设置面板遮罩 -->
+    <div id="aiOverlay" class="fixed inset-0 cyber-modal-backdrop z-40 opacity-0 invisible transition-all duration-300"></div>
+    
+    <!-- 续聊弹窗 -->
+    <div id="extensionModal" class="fixed inset-0 cyber-modal-backdrop hidden flex items-center justify-center z-50 p-4">
+        <div class="cyber-modal-content rounded-2xl p-8 max-w-sm w-full shadow-2xl">
+            <div class="text-center">
+                <div class="w-20 h-20 mx-auto mb-6 cyber-border cyber-glow rounded-full flex items-center justify-center">
+                    <i class="fas fa-heart text-3xl neon-pink animate-pulse"></i>
+                </div>
+                <h3 class="cyber-title text-2xl font-bold mb-4 neon-cyan">EXTEND CONNECTION?</h3>
+                <p class="cyber-text neon-green mb-6">决策时间: <span id="decisionTimer" class="neon-pink font-bold">10</span> 秒</p>
+                
+                <div class="flex space-x-4 mb-6">
+                    <button id="agreeBtn" class="flex-1 py-3 cyber-button rounded-xl font-semibold neon-green border-2 border-green-500 hover:cyber-glow transition-all">
+                        <i class="fas fa-heart mr-2"></i>
+                        ACCEPT
+                    </button>
+                    <button id="declineBtn" class="flex-1 py-3 cyber-button rounded-xl font-semibold neon-pink border-2 border-red-500 hover:cyber-glow transition-all">
+                        <i class="fas fa-times mr-2"></i>
+                        DECLINE
+                    </button>
+                </div>
+                
+                <!-- 双方状态显示 -->
+                <div class="flex justify-between cyber-text text-sm neon-cyan">
+                    <div class="flex items-center space-x-2">
+                        <div id="myStatus" class="cyber-status-dot bg-gray-400"></div>
+                        <span>YOU</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span>PEER</span>
+                        <div id="partnerStatus" class="cyber-status-dot bg-gray-400"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    <!-- 测试脚本 - 仅用于开发测试 -->
+    <script src="../test-users.js"></script>
+    <!-- 数据库初始化脚本 -->
+    <script src="../init-db.js"></script>
+</body>
+</html>
